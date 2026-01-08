@@ -157,18 +157,24 @@ interface GeminiResult {
   durationMs: number;
 }
 
+const activeProcesses = new Set<ReturnType<typeof Bun.spawn>>();
+
 async function runGemini(
   args: string[],
   timeout: number
 ): Promise<GeminiResult> {
   const startTime = Date.now();
+  let didTimeout = false;
 
   const proc = Bun.spawn(["gemini", ...args], {
     stdout: "pipe",
     stderr: "pipe",
   });
 
+  activeProcesses.add(proc);
+
   const timeoutId = setTimeout(() => {
+    didTimeout = true;
     proc.kill();
   }, timeout);
 
@@ -179,27 +185,53 @@ async function runGemini(
     ]);
     const exitCode = await proc.exited;
     clearTimeout(timeoutId);
+    activeProcesses.delete(proc);
 
     const durationMs = Date.now() - startTime;
 
+    if (didTimeout) {
+      throw new Error(
+        `Gemini timed out after ${timeout}ms` +
+          (stdout ? `\nPartial output: ${stdout}` : "")
+      );
+    }
+
     if (exitCode !== 0) {
-      const errorInfo = [
-        `Gemini failed (exit code ${exitCode})`,
-        stderr ? `\nStderr: ${stderr}` : "",
-        stdout ? `\nPartial output: ${stdout}` : "",
-      ].join("");
-      throw new Error(errorInfo);
+      throw new Error(
+        `Gemini failed (exit code ${exitCode})` +
+          (stderr ? `\nStderr: ${stderr}` : "") +
+          (stdout ? `\nPartial output: ${stdout}` : "")
+      );
     }
 
     return { output: stdout, exitCode, durationMs };
   } catch (error) {
     clearTimeout(timeoutId);
-    if ((error as Error).message.includes("exit code")) {
-      throw error;
-    }
-    throw new Error(`Gemini timed out after ${timeout}ms`);
+    activeProcesses.delete(proc);
+    throw error;
   }
 }
+
+function cleanup() {
+  for (const proc of activeProcesses) {
+    try {
+      proc.kill();
+    } catch {
+      // Process may have already exited
+    }
+  }
+  activeProcesses.clear();
+}
+
+process.on("SIGINT", () => {
+  cleanup();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  cleanup();
+  process.exit(0);
+});
 
 async function main() {
   const transport = new StdioServerTransport();
