@@ -47,26 +47,37 @@ Key points:
 My assessment: [your evaluation, any disagreements, how this applies to the task]
 ```
 
-## Delegation Prompt Structure
+## Delegation Prompt Structure (MANDATORY)
 
-**Core rule**: Include enough context for the question to be answerable without follow-ups.
-
-Simple questions get simple prompts. Complex questions need more structure.
-
-For complex tasks, consider including:
+When delegating, your prompt MUST include these 7 sections:
 
 ```
-TASK: [What you need - one sentence]
+1. TASK: [Atomic, specific goal - one sentence]
 
-CONTEXT:
-- [Relevant background, code snippets, what's been tried]
+2. EXPECTED OUTCOME: [What success looks like]
 
-CONSTRAINTS: [if any]
+3. CONTEXT:
+   - Current approach: [what you've tried]
+   - Relevant code: [file paths or inline snippets]
+   - Conversation history: [relevant prior discussion]
 
-EXPECTED OUTPUT: [format you want back]
+4. CONSTRAINTS:
+   - [Technical limitations]
+   - [Patterns to follow]
+   - [Dependencies/versions]
+
+5. MUST DO:
+   - [Exhaustive list of requirements]
+   - [Be specific - leave nothing implicit]
+
+6. MUST NOT DO:
+   - [Forbidden actions]
+   - [Anticipate and block rogue behavior]
+
+7. OUTPUT FORMAT:
+   - [How to structure the response]
+   - [What sections to include]
 ```
-
-See `delegation-format.md` for examples and guidelines.
 
 ## Parallel Consultation
 
@@ -107,7 +118,7 @@ External model calls cost money. Use them strategically:
 |---------------|-----------------|
 | Delegate trivial questions | Answer directly |
 | Show raw external output | Synthesize and interpret |
-| Delegate without context | Include enough context to answer |
+| Delegate without context | Include all 7 sections |
 | Ignore external model errors | Investigate and retry or escalate |
 | Spam multiple calls | One structured call |
 | Auto-escalate without asking | Suggest escalation, wait for approval |
