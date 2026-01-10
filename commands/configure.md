@@ -1,6 +1,8 @@
 ---
+name: configure
 description: Manage Codex provider configuration
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion
+timeout: 30000
 arguments:
   - name: action
     type: string
