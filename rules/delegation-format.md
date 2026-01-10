@@ -85,127 +85,45 @@ OUTPUT FORMAT:
 
 ---
 
-## Librarian (Gemini) Template
+## Momus (GPT) Template
 
-For research, documentation, best practices lookup.
-
-```markdown
-TASK: Research [specific topic/library/pattern] for [use case].
-
-EXPECTED OUTCOME: Best practices, working code examples, common pitfalls to avoid.
-
-CONTEXT:
-- Stack: [framework], [language], [relevant libraries]
-- Version: [specific versions that matter]
-- Goal: [What I'm trying to achieve]
-- Current understanding: [What I already know]
-
-CONSTRAINTS:
-- Must be compatible with [version]
-- Needs to work with [existing pattern]
-- Should follow [convention] used in this codebase
-
-MUST DO:
-- Cite official documentation when possible
-- Include working code examples
-- Note version-specific behavior
-- Highlight common mistakes and how to avoid them
-- Mention any gotchas or edge cases
-
-MUST NOT DO:
-- Hallucinate APIs that don't exist
-- Mix patterns from different versions
-- Provide deprecated solutions
-- Ignore error handling in examples
-
-OUTPUT FORMAT:
-1. Summary of best approach (2-3 sentences)
-2. Code example (working, copy-paste ready)
-3. Explanation of key concepts
-4. Common pitfalls and how to avoid them
-5. Additional resources (if relevant)
-```
-
----
-
-## Frontend Engineer (Gemini) Template
-
-For UI/UX code, components, styling.
+For plan review, validation, and critique before implementation.
 
 ```markdown
-TASK: [Create/Improve/Style] [component/element] that [does what].
+TASK: Review [plan/approach/design] for [project/feature] before implementation.
 
-EXPECTED OUTCOME: Production-ready component code with proper styling and accessibility.
-
-CONTEXT:
-- Framework: [React/Vue/Svelte/etc.]
-- Styling: [Tailwind/CSS-in-JS/SCSS/etc.]
-- Design system: [If applicable]
-- Existing components: [Related components to match]
-
-CONSTRAINTS:
-- Must match existing design patterns in codebase
-- Must be accessible (WCAG 2.1 AA)
-- Must be responsive (mobile-first)
-- Must work with [state management solution]
-
-MUST DO:
-- Follow component patterns used elsewhere in codebase
-- Include proper TypeScript types
-- Handle loading/error/empty states
-- Ensure keyboard navigation works
-- Use semantic HTML elements
-
-MUST NOT DO:
-- Use inline styles (unless Tailwind)
-- Ignore accessibility requirements
-- Create components that don't match existing design
-- Use deprecated APIs or patterns
-
-OUTPUT FORMAT:
-1. Component code (complete, working)
-2. Usage example
-3. Props documentation
-4. Styling notes
-5. Accessibility considerations
-```
-
----
-
-## Explore (Gemini) Template
-
-For codebase search, pattern finding, understanding structure.
-
-```markdown
-TASK: Find [pattern/implementation/usage] of [thing] in this codebase.
-
-EXPECTED OUTCOME: List of relevant files/locations with explanation of how they relate.
+EXPECTED OUTCOME: Honest critique identifying gaps, risks, and improvements.
 
 CONTEXT:
-- Looking for: [What specifically to find]
-- Why: [What I need to understand or do]
-- Already checked: [Places I've already looked]
+- Plan summary: [What's being proposed]
+- Goals: [What this is trying to achieve]
+- Constraints: [Technical/business limitations]
+- Timeline: [If relevant]
 
 CONSTRAINTS:
-- Focus on [specific directory/module] if possible
-- Prioritize [most relevant type of result]
+- Must work within [existing architecture]
+- Cannot break [protected functionality]
+- Budget/time constraints: [if applicable]
 
 MUST DO:
-- Search thoroughly across the codebase
-- Group findings by relevance
-- Explain how each finding relates to the search goal
-- Note any patterns or conventions discovered
+- Identify gaps, missing edge cases, and overlooked requirements
+- Point out risks and potential failure modes
+- Suggest concrete improvements
+- Be direct and honest, even if critical
+- Prioritize feedback by importance
 
 MUST NOT DO:
-- Return irrelevant matches
-- Miss obvious locations
-- Provide findings without context
+- Rubber-stamp plans without real analysis
+- Provide vague or non-actionable feedback
+- Ignore obvious problems to be polite
+- Add unnecessary complexity
 
 OUTPUT FORMAT:
-1. Summary of what was found
-2. Key locations (file:line with explanation)
-3. Patterns observed
-4. Recommendations (if applicable)
+1. Overall assessment (go/no-go/needs work)
+2. Critical issues (must fix before proceeding)
+3. Risks identified (with mitigation suggestions)
+4. Improvements (nice-to-have enhancements)
+5. Questions (clarifications needed)
 ```
 
 ---
@@ -215,9 +133,7 @@ OUTPUT FORMAT:
 | Role | Model | Template Focus |
 |------|-------|----------------|
 | Oracle | GPT | Deep analysis, tradeoffs, recommendations |
-| Librarian | Gemini | Research, examples, documentation |
-| Frontend Engineer | Gemini | UI code, styling, accessibility |
-| Explore | Gemini | Codebase search, pattern finding |
+| Momus | GPT | Plan review, critique, validation |
 
 ---
 
