@@ -2,8 +2,8 @@
 
 GPT expert subagents for Claude Code. Five specialists that can analyze AND implement—architecture, security, code review, and more.
 
-[![License](https://img.shields.io/github/license/jarrodwatts/claude-delegator)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/jarrodwatts/claude-delegator)](https://github.com/jarrodwatts/claude-delegator/stargazers)
+[![License](https://img.shields.io/github/license/jarrodwatts/claude-delegator?v=2)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/jarrodwatts/claude-delegator?v=2)](https://github.com/jarrodwatts/claude-delegator/stargazers)
 
 ![Claude Delegator in action](claude-delegator.png)
 
