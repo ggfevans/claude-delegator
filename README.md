@@ -109,18 +109,16 @@ Claude automatically selects the mode based on your request.
 
 ### Manual MCP Setup
 
-If `/setup` doesn't work, manually add to `~/.claude/settings.json`:
+If `/setup` doesn't work, register the MCP server manually:
 
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "codex",
-      "args": ["-m", "gpt-5.2-codex", "mcp-server"]
-    }
-  }
-}
+```bash
+claude mcp add --transport stdio --scope user codex -- codex -m gpt-5.3-codex mcp-server
+```
+
+Verify with:
+
+```bash
+claude mcp list
 ```
 
 ### Customizing Expert Prompts
@@ -157,7 +155,7 @@ Edit these to customize expert behavior for your workflow.
 |-------|----------|
 | MCP server not found | Restart Claude Code after setup |
 | Codex not authenticated | Run `codex login` |
-| Tool not appearing | Check `~/.claude/settings.json` has codex entry |
+| Tool not appearing | Run `claude mcp list` and verify codex is registered |
 | Expert not triggered | Try explicit: "Ask GPT to review this architecture" |
 
 ---
