@@ -91,6 +91,19 @@ Claude: "Based on the analysis, I found 3 issues..."
 - Claude reads your request → picks the right expert → delegates via MCP
 - Responses are synthesized, not passed through raw
 - Experts can retry up to 3 times before escalating
+- Multi-turn conversations preserve context via `threadId` for chained tasks
+
+### Multi-Turn Conversations
+
+For chained implementation steps, the expert preserves context across turns:
+
+```
+Turn 1: mcp__codex__codex → returns threadId
+Turn 2: mcp__codex__codex-reply(threadId) → expert remembers turn 1
+Turn 3: mcp__codex__codex-reply(threadId) → expert remembers turns 1-2
+```
+
+Use single-shot (`codex` only) for advisory tasks. Use multi-turn for implementation chains and retries.
 
 ---
 
@@ -106,6 +119,17 @@ Every expert supports two modes based on the task:
 | **Implementation** | `workspace-write` | Making changes, fixing issues |
 
 Claude automatically selects the mode based on your request.
+
+### Configuration Defaults
+
+Set global defaults in `~/.codex/config.toml` instead of passing parameters on every call:
+
+```toml
+sandbox = "workspace-write"
+ask_for_approval = "on-failure"
+```
+
+Per-call parameters override these defaults. See [Codex CLI docs](https://github.com/openai/codex) for all config options.
 
 ### Manual MCP Setup
 
