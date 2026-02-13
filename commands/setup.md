@@ -29,41 +29,31 @@ After installation, re-run /claude-delegator:setup
 
 **STOP here if Codex is not installed.**
 
-## Step 2: Read Current Settings
+## Step 2: Configure MCP Server
+
+Register Codex as an MCP server using Claude Code's native command:
 
 ```bash
-cat ~/.claude/settings.json 2>/dev/null || echo "{}"
+claude mcp add --transport stdio --scope user codex -- codex -m gpt-5.3-codex mcp-server
 ```
 
-## Step 3: Configure MCP Server
+This registers the Codex MCP server at user scope (available across all projects).
 
-Merge into `~/.claude/settings.json`:
+**Note:** To customise Codex behaviour, add CLI flags before `mcp-server`:
+- `-p nosandbox` — disable sandbox restrictions
+- `-c 'model_reasoning_effort="xhigh"'` — set reasoning effort
+- Example with all options:
+  ```bash
+  claude mcp add --transport stdio --scope user codex -- codex -p nosandbox -m gpt-5.3-codex -c 'model_reasoning_effort="xhigh"' mcp-server
+  ```
 
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "codex",
-      "args": ["-m", "gpt-5.2-codex", "mcp-server"]
-    }
-  }
-}
-```
-
-Note: Use `gpt-5.2-codex` explicitly for the latest model.
-
-**CRITICAL**:
-- Merge with existing settings, don't overwrite
-- Preserve any existing `mcpServers` entries
-
-## Step 4: Install Orchestration Rules
+## Step 3: Install Orchestration Rules
 
 ```bash
 mkdir -p ~/.claude/rules/delegator && cp ${CLAUDE_PLUGIN_ROOT}/rules/*.md ~/.claude/rules/delegator/
 ```
 
-## Step 5: Verify Installation
+## Step 4: Verify Installation
 
 Run these checks and report results:
 
@@ -71,8 +61,8 @@ Run these checks and report results:
 # Check 1: Codex CLI version
 codex --version 2>&1 | head -1
 
-# Check 2: MCP server configured
-cat ~/.claude/settings.json | jq -r '.mcpServers.codex.args | join(" ")' 2>/dev/null
+# Check 2: MCP server registered
+claude mcp list 2>/dev/null | grep -q "codex" && echo "OK" || echo "NOT CONFIGURED"
 
 # Check 3: Rules installed (count files)
 ls ~/.claude/rules/delegator/*.md 2>/dev/null | wc -l
@@ -81,7 +71,7 @@ ls ~/.claude/rules/delegator/*.md 2>/dev/null | wc -l
 codex login status 2>&1 | head -1 || echo "Run 'codex login' to authenticate"
 ```
 
-## Step 6: Report Status
+## Step 5: Report Status
 
 Display actual values from the checks above:
 
@@ -89,8 +79,8 @@ Display actual values from the checks above:
 claude-delegator Status
 ───────────────────────────────────────────────────
 Codex CLI:     ✓ [version from check 1]
-Model:         ✓ gpt-5.2-codex (or ✗ if not configured)
-MCP Config:    ✓ ~/.claude/settings.json (or ✗ if missing)
+Model:         ✓ gpt-5.3-codex (or ✗ if not configured)
+MCP Config:    ✓ Registered via claude mcp (or ✗ if missing)
 Rules:         ✓ [N] files in ~/.claude/rules/delegator/
 Auth:          [status from check 4]
 ───────────────────────────────────────────────────
@@ -98,7 +88,7 @@ Auth:          [status from check 4]
 
 If any check fails, report the specific issue and how to fix it.
 
-## Step 7: Final Instructions
+## Step 6: Final Instructions
 
 ```
 Setup complete!
@@ -136,7 +126,7 @@ Expert is auto-detected based on your request.
 Explicit: "Ask GPT to review..." or "Have GPT fix..."
 ```
 
-## Step 8: Ask About Starring
+## Step 7: Ask About Starring
 
 Use AskUserQuestion to ask the user if they'd like to ⭐ star the claude-delegator repository on GitHub to support the project.
 
