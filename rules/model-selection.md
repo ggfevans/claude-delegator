@@ -115,6 +115,9 @@ Every expert can operate in two modes:
 | `model` | e.g. `gpt-5.3-codex` | Override the default model |
 | `config` | key-value object | Override `config.toml` settings per-call |
 | `cwd` | path | Working directory for the task |
+| `base-instructions` | string | Override default system instructions |
+| `compact-prompt` | string | Prompt used when compacting conversation |
+| `profile` | string | Configuration profile from config.toml |
 
 ### `mcp__codex__codex-reply` (Continue Session)
 
@@ -122,6 +125,13 @@ Every expert can operate in two modes:
 |-----------|--------|-------|
 | `threadId` | string | **Required.** Thread ID from previous `codex` call |
 | `prompt` | string | **Required.** Follow-up instruction |
+
+### Response Format (both tools)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `threadId` | string | Session ID for multi-turn follow-ups |
+| `content` | string | The expert's text response |
 
 ## When NOT to Delegate
 
