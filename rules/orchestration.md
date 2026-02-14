@@ -231,15 +231,10 @@ CONTEXT: [user's situation, full details]
 
 First attempt failed with "TypeError: Cannot read property 'x' of undefined"
 
-**Retry call:**
+**Attempt 1 (initial call):**
 ```typescript
-mcp__codex__codex({
+const result = mcp__codex__codex({
   prompt: `TASK: Add input validation to the user registration endpoint.
-
-PREVIOUS ATTEMPT:
-- Added validation middleware to routes/auth.ts
-- Error: TypeError: Cannot read property 'x' of undefined at line 45
-- The middleware was added but req.body was undefined
 
 CONTEXT:
 - Express 4.x application
@@ -247,12 +242,23 @@ CONTEXT:
 - [relevant code snippets]
 
 REQUIREMENTS:
-- Fix the undefined req.body issue
+- Add validation middleware to routes/auth.ts
 - Ensure validation runs after body parser
 - Report all files modified`,
-  "developer-instructions": "[contents of code-reviewer.md or architect.md]",
+  "developer-instructions": "[contents of code-reviewer.md]",
   sandbox: "workspace-write",
   cwd: "/path/to/project"
+})
+```
+
+**Attempt 2 (retry via multi-turn):**
+```typescript
+mcp__codex__codex-reply({
+  threadId: result.threadId,
+  prompt: `The previous implementation failed verification.
+Error: TypeError: Cannot read property 'x' of undefined at line 45
+The middleware was added but req.body was undefined.
+Fix the issue — ensure validation runs after body parser.`
 })
 ```
 
@@ -300,4 +306,4 @@ Trusted projects allow the expert full access within the sandbox policy.
 | Delegate without reading prompt file | ALWAYS read and inject expert prompt |
 | Skip user notification | ALWAYS notify before delegating |
 | Retry without including error context | Include FULL history of what was tried |
-| Assume expert remembers previous calls | Include all context in every call |
+| Assume expert remembers across sessions | Use `codex-reply` for multi-turn; include full context for single-shot |
