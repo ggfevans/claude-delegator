@@ -61,8 +61,14 @@ Run these checks and report results:
 # Check 1: Codex CLI version
 codex --version 2>&1 | head -1
 
-# Check 2: MCP server registered
-claude mcp list 2>/dev/null | grep -q "codex" && echo "OK" || echo "NOT CONFIGURED"
+# Check 2: MCP server registered and model version
+CODEX_CONFIG=$(claude mcp get codex 2>/dev/null)
+if echo "$CODEX_CONFIG" | grep -q "codex"; then
+  MODEL=$(echo "$CODEX_CONFIG" | grep -oE 'gpt-[0-9]+\.[0-9]+-?[a-z]*' | head -1)
+  echo "OK (model: ${MODEL:-unknown})"
+else
+  echo "NOT CONFIGURED"
+fi
 
 # Check 3: Rules installed (count files)
 ls ~/.claude/rules/delegator/*.md 2>/dev/null | wc -l
@@ -79,7 +85,7 @@ Display actual values from the checks above:
 claude-delegator Status
 ───────────────────────────────────────────────────
 Codex CLI:     ✓ [version from check 1]
-Model:         ✓ gpt-5.3-codex (or ✗ if not configured)
+Model:         ✓ [model from check 2] (or ✗ if not configured)
 MCP Config:    ✓ Registered via claude mcp (or ✗ if missing)
 Rules:         ✓ [N] files in ~/.claude/rules/delegator/
 Auth:          [status from check 4]
