@@ -1,113 +1,132 @@
 ---
 name: setup
-description: Configure claude-delegator with Codex MCP server
+description: Configure claude-delegator with Codex (GPT) or Gemini MCP servers
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion
 timeout: 60000
 ---
 
 # Setup
 
-Configure Codex (GPT) as specialized expert subagents via native MCP. Five domain experts that can advise OR implement.
+Configure GPT (via Codex) or Gemini as specialized expert subagents via native MCP. Five domain experts that can advise OR implement.
 
-## Step 1: Check Codex CLI
+## Step 1: Check CLI Dependencies
 
+### Codex (GPT)
 ```bash
 which codex 2>/dev/null && codex --version 2>&1 | head -1 || echo "CODEX_MISSING"
 ```
 
+### Gemini
+```bash
+which gemini 2>/dev/null && gemini --version 2>&1 | head -1 || echo "GEMINI_MISSING"
+```
+
 ### If Missing
 
-Tell user:
+**Codex Missing:**
 ```
 Codex CLI not found.
-
 Install with: npm install -g @openai/codex
 Then authenticate: codex login
-
-After installation, re-run /claude-delegator:setup
 ```
 
-**STOP here if Codex is not installed.**
+**Gemini Missing:**
+```
+Gemini CLI not found.
+Install with: npm install -g @google/gemini-cli
+Then authenticate: gemini login
+```
 
-## Step 2: Read Current Settings
+**STOP here if no providers are installed.**
 
+## Step 2: Configure MCP Servers
+
+Register your preferred provider(s) as MCP servers using Claude Code's native command:
+
+### Codex (GPT)
 ```bash
-cat ~/.claude/settings.json 2>/dev/null || echo "{}"
+claude mcp add --transport stdio --scope user codex -- codex -m gpt-5.3-codex mcp-server
 ```
 
-## Step 3: Configure MCP Server
-
-Merge into `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "codex",
-      "args": ["-m", "gpt-5.2-codex", "mcp-server"]
-    }
-  }
-}
+### Gemini
+```bash
+claude mcp add --transport stdio --scope user gemini -- gemini -m gemini-2.0-flash mcp-server
 ```
 
-Note: Use `gpt-5.2-codex` explicitly for the latest model.
+This registers the MCP servers at user scope (available across all projects).
 
-**CRITICAL**:
-- Merge with existing settings, don't overwrite
-- Preserve any existing `mcpServers` entries
+**Note:** To customise provider behaviour, add CLI flags before `mcp-server`.
+- For Codex: `-p nosandbox`
+- For Gemini: `--sandbox read-only` (etc.)
 
-## Step 4: Install Orchestration Rules
+## Step 3: Install Orchestration Rules
 
 ```bash
 mkdir -p ~/.claude/rules/delegator && cp ${CLAUDE_PLUGIN_ROOT}/rules/*.md ~/.claude/rules/delegator/
 ```
 
-## Step 5: Verify Installation
+## Step 4: Verify Installation
 
 Run these checks and report results:
 
 ```bash
-# Check 1: Codex CLI version
-codex --version 2>&1 | head -1
+# Check 1: CLI versions
+codex --version 2>&1 | head -1 || echo "Not installed"
+gemini --version 2>&1 | head -1 || echo "Not installed"
 
-# Check 2: MCP server configured
-cat ~/.claude/settings.json | jq -r '.mcpServers.codex.args | join(" ")' 2>/dev/null
+# Check 2: Codex MCP server
+CODEX_CONFIG=$(claude mcp get codex 2>/dev/null)
+if echo "$CODEX_CONFIG" | grep -q "codex"; then
+  MODEL=$(echo "$CODEX_CONFIG" | grep -oE 'gpt-[0-9]+\.[0-9]+-?[a-z]*' | head -1)
+  echo "Codex: OK (model: ${MODEL:-unknown})"
+else
+  echo "Codex: NOT CONFIGURED"
+fi
 
-# Check 3: Rules installed (count files)
+# Check 3: Gemini MCP server
+GEMINI_CONFIG=$(claude mcp get gemini 2>/dev/null)
+if echo "$GEMINI_CONFIG" | grep -q "gemini"; then
+  MODEL=$(echo "$GEMINI_CONFIG" | grep -oE 'gemini-[a-z0-9.-]+' | head -1)
+  echo "Gemini: OK (model: ${MODEL:-unknown})"
+else
+  echo "Gemini: NOT CONFIGURED"
+fi
+
+# Check 4: Rules installed (count files)
 ls ~/.claude/rules/delegator/*.md 2>/dev/null | wc -l
 
-# Check 4: Auth status (check if logged in)
-codex login status 2>&1 | head -1 || echo "Run 'codex login' to authenticate"
+# Check 5: Auth status
+codex login status 2>&1 | head -1 || echo "Codex: Run 'codex login'"
+gemini login status 2>&1 | head -1 || echo "Gemini: Run 'gemini login'"
 ```
 
-## Step 6: Report Status
+## Step 5: Report Status
 
 Display actual values from the checks above:
 
 ```
 claude-delegator Status
 ───────────────────────────────────────────────────
-Codex CLI:     ✓ [version from check 1]
-Model:         ✓ gpt-5.2-codex (or ✗ if not configured)
-MCP Config:    ✓ ~/.claude/settings.json (or ✗ if missing)
+Codex CLI:     [version from check 1]
+Gemini CLI:    [version from check 1]
+Codex MCP:     [status from check 2]
+Gemini MCP:    [status from check 3]
 Rules:         ✓ [N] files in ~/.claude/rules/delegator/
-Auth:          [status from check 4]
 ───────────────────────────────────────────────────
 ```
 
 If any check fails, report the specific issue and how to fix it.
 
-## Step 7: Final Instructions
+## Step 6: Final Instructions
 
 ```
 Setup complete!
 
 Next steps:
-1. Restart Claude Code to load MCP server
-2. Authenticate: Run `codex login` in terminal (if not already done)
+1. Restart Claude Code to load MCP server(s)
+2. Authenticate: Run `codex login` or `gemini login` in terminal
 
-Five GPT experts available:
+Five experts available:
 
 ┌──────────────────┬─────────────────────────────────────────────┐
 │ Architect        │ "How should I structure this service?"      │
@@ -133,10 +152,10 @@ Five GPT experts available:
 
 Every expert can advise (read-only) OR implement (write).
 Expert is auto-detected based on your request.
-Explicit: "Ask GPT to review..." or "Have GPT fix..."
+Explicit: "Ask GPT to..." or "Ask Gemini to..."
 ```
 
-## Step 8: Ask About Starring
+## Step 7: Ask About Starring
 
 Use AskUserQuestion to ask the user if they'd like to ⭐ star the claude-delegator repository on GitHub to support the project.
 

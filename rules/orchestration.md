@@ -6,9 +6,10 @@ You have access to GPT experts via MCP tools. Use them strategically based on th
 
 | Tool | Provider | Use For |
 |------|----------|---------|
-| `mcp__codex__codex` | GPT | Delegate to an expert (stateless) |
-
-> **Note:** `codex-reply` exists but requires a session ID not currently exposed to Claude Code. Each delegation is independent—include full context in every call.
+| `mcp__codex__codex` | GPT | Start a new expert session |
+| `mcp__codex__codex-reply` | GPT | Continue an existing session (multi-turn) |
+| `mcp__gemini__gemini` | Gemini | Start a new expert session |
+| `mcp__gemini__gemini-reply` | Gemini | Continue an existing session (multi-turn) |
 
 ## Available Experts
 
@@ -22,16 +23,42 @@ You have access to GPT experts via MCP tools. Use them strategically based on th
 
 ---
 
-## Stateless Design
+## Session Management
 
-**Each delegation is independent.** The expert has no memory of previous calls.
+Codex and Gemini support two delegation patterns:
 
-**Implications:**
-- Include ALL relevant context in every delegation prompt
-- For retries, include what was attempted and what failed
-- Don't assume the expert remembers previous interactions
+### Single-Shot (Default)
 
-**Why:** Codex MCP returns session IDs in event notifications, but Claude Code only surfaces the final text response. Until this changes, treat each call as fresh.
+Use `mcp__codex__codex` or `mcp__gemini__gemini` for independent tasks. Each call starts a fresh session with no memory of previous calls. Include ALL relevant context in the delegation prompt.
+
+**Best for:** Advisory reviews, one-off analysis, independent implementation tasks.
+
+### Multi-Turn
+
+Both providers support multi-turn interactions. The initial call returns a `threadId` in its response. Pass this to the corresponding `-reply` tool for follow-up turns with full context preservation.
+
+```typescript
+// Turn 1: Start session (Codex example)
+const result = mcp__codex__codex({
+  prompt: "Implement input validation for the user endpoint",
+  "developer-instructions": "[expert prompt]",
+  cwd: "/path/to/project"
+})
+// result includes threadId: "019c58e5-..."
+
+// Turn 2: Follow up with context preserved
+mcp__codex__codex-reply({
+  threadId: "019c58e5-...",
+  prompt: "Now add tests for the validation you just implemented"
+})
+```
+
+**Best for:** Chained implementation steps, iterative refinement, retry after failure.
+
+| Pattern | Tool | Context | Use When |
+|---------|------|---------|----------|
+| Single-shot | `codex` / `gemini` | Fresh each call | Advisory, one-off tasks |
+| Multi-turn | `*-reply` | Preserved via threadId | Chained steps, retries |
 
 ---
 
@@ -54,13 +81,14 @@ Before handling any request, check if an expert would help:
 
 ## REACTIVE Delegation (Explicit User Request)
 
-When user explicitly requests GPT/Codex:
+When user explicitly requests GPT/Codex or Gemini:
 
 | User Says | Action |
 |-----------|--------|
 | "ask GPT", "consult GPT", "ask codex" | Identify task type → route to appropriate expert |
+| "ask Gemini", "consult Gemini", "ask gemini" | Identify task type → route to appropriate expert |
 | "ask GPT to review the architecture" | Delegate to Architect |
-| "have GPT review this code" | Delegate to Code Reviewer |
+| "have Gemini review this code" | Delegate to Code Reviewer |
 | "GPT security review" | Delegate to Security Analyst |
 
 **Always honor explicit requests.**
@@ -98,14 +126,23 @@ Delegating to [Expert Name]: [brief task summary]
 ### Step 5: Build Delegation Prompt
 Use the 7-section format from `rules/delegation-format.md`.
 
-**IMPORTANT:** Since each call is stateless, include FULL context:
+**IMPORTANT:** For single-shot calls, include FULL context. For multi-turn, use the appropriate `*-reply` tool with the `threadId` from the initial call:
 - What the user asked for
 - Relevant code/files
 - Any previous attempts and their results (for retries)
 
 ### Step 6: Call the Expert
 ```typescript
+// Using Codex (GPT)
 mcp__codex__codex({
+  prompt: "[your 7-section delegation prompt with FULL context]",
+  "developer-instructions": "[contents of the expert's prompt file]",
+  sandbox: "[read-only or workspace-write based on mode]",
+  cwd: "[current working directory]"
+})
+
+// OR Using Gemini
+mcp__gemini__gemini({
   prompt: "[your 7-section delegation prompt with FULL context]",
   "developer-instructions": "[contents of the expert's prompt file]",
   sandbox: "[read-only or workspace-write based on mode]",
@@ -123,19 +160,36 @@ mcp__codex__codex({
 
 ## Retry Flow (Implementation Mode)
 
-When implementation fails verification, retry with a NEW call including error context:
+When implementation fails verification, use multi-turn to retry with preserved context:
 
 ```
-Attempt 1 → Verify → [Fail]
+Attempt 1 (initial call) → Verify → [Fail]
      ↓
-Attempt 2 (new call with: original task + what was tried + error details) → Verify → [Fail]
+Attempt 2 (*-reply with threadId + error details) → Verify → [Fail]
      ↓
-Attempt 3 (new call with: full history of attempts) → Verify → [Fail]
+Attempt 3 (*-reply with threadId + full error history) → Verify → [Fail]
      ↓
 Escalate to user
 ```
 
-### Retry Prompt Template
+### Retry with Multi-Turn
+
+```typescript
+// Attempt 1 (Codex or Gemini)
+const result = mcp__codex__codex({ ... }) 
+
+// Attempt 2 (context preserved — expert remembers attempt 1)
+mcp__codex__codex-reply({
+  threadId: result.threadId,
+  prompt: `The previous implementation failed verification.
+Error: [exact error message]
+Fix the issue and verify the change works.`
+})
+```
+
+### Retry with Single-Shot (Fallback)
+
+If multi-turn is unavailable, use a new delegation call with full context:
 
 ```markdown
 TASK: [Original task]
@@ -145,15 +199,10 @@ PREVIOUS ATTEMPT:
 - Error encountered: [exact error message]
 - Files modified: [list]
 
-CONTEXT:
-- [Full original context]
-
 REQUIREMENTS:
 - Fix the error from the previous attempt
 - [Original requirements]
 ```
-
-**Key:** Each retry is a fresh call. The expert doesn't know what happened before unless you tell them.
 
 ---
 
@@ -189,15 +238,10 @@ CONTEXT: [user's situation, full details]
 
 First attempt failed with "TypeError: Cannot read property 'x' of undefined"
 
-**Retry call:**
+**Attempt 1 (initial call):**
 ```typescript
-mcp__codex__codex({
+const result = mcp__codex__codex({
   prompt: `TASK: Add input validation to the user registration endpoint.
-
-PREVIOUS ATTEMPT:
-- Added validation middleware to routes/auth.ts
-- Error: TypeError: Cannot read property 'x' of undefined at line 45
-- The middleware was added but req.body was undefined
 
 CONTEXT:
 - Express 4.x application
@@ -205,14 +249,50 @@ CONTEXT:
 - [relevant code snippets]
 
 REQUIREMENTS:
-- Fix the undefined req.body issue
+- Add validation middleware to routes/auth.ts
 - Ensure validation runs after body parser
 - Report all files modified`,
-  "developer-instructions": "[contents of code-reviewer.md or architect.md]",
+  "developer-instructions": "[contents of code-reviewer.md]",
   sandbox: "workspace-write",
   cwd: "/path/to/project"
 })
 ```
+
+**Attempt 2 (retry via multi-turn):**
+```typescript
+mcp__codex__codex-reply({
+  threadId: result.threadId,
+  prompt: `The previous implementation failed verification.
+Error: TypeError: Cannot read property 'x' of undefined at line 45
+The middleware was added but req.body was undefined.
+Fix the issue — ensure validation runs after body parser.`
+})
+```
+
+---
+
+## Codex Configuration Defaults
+
+Set global defaults in `~/.codex/config.toml` so you don't need to pass `sandbox` and `approval-policy` on every call:
+
+```toml
+# ~/.codex/config.toml
+sandbox = "workspace-write"
+ask_for_approval = "on-failure"
+```
+
+Per-call parameters override these defaults. For example, pass `sandbox: "read-only"` to override the global default for advisory-only tasks.
+
+### Project Trust Levels
+
+Codex also supports per-project trust configuration:
+
+```toml
+[projects."/path/to/your/project"]
+trust_level = "trusted"
+```
+
+Trusted projects allow the expert full access within the sandbox policy.
 
 ---
 
@@ -233,4 +313,4 @@ REQUIREMENTS:
 | Delegate without reading prompt file | ALWAYS read and inject expert prompt |
 | Skip user notification | ALWAYS notify before delegating |
 | Retry without including error context | Include FULL history of what was tried |
-| Assume expert remembers previous calls | Include all context in every call |
+| Assume expert remembers across sessions | Use the appropriate `-reply` tool for multi-turn; include full context for single-shot |

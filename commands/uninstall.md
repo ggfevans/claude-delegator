@@ -11,7 +11,7 @@ Remove claude-delegator from Claude Code.
 
 ## Confirm Removal
 
-**Question**: "Remove Codex MCP configuration and plugin rules?"
+**Question**: "Remove Codex/Gemini MCP configuration and plugin rules?"
 **Options**:
 - "Yes, uninstall"
 - "No, cancel"
@@ -20,7 +20,10 @@ If cancelled, stop here.
 
 ## Remove MCP Configuration
 
-Read `~/.claude/settings.json`, delete `mcpServers.codex` entry, write back.
+```bash
+claude mcp remove --scope user codex
+claude mcp remove --scope user gemini
+```
 
 ## Remove Installed Rules
 
@@ -31,7 +34,7 @@ rm -rf ~/.claude/rules/delegator/
 ## Confirm Completion
 
 ```
-✓ Removed 'codex' from MCP servers
+✓ Removed providers from MCP servers
 ✓ Removed rules from ~/.claude/rules/delegator/
 
 To reinstall: /claude-delegator:setup
