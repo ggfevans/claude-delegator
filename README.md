@@ -1,6 +1,6 @@
 # Claude Delegator
 
-GPT expert subagents for Claude Code. Five specialists that can analyze AND implement—architecture, security, code review, and more.
+GPT and Gemini expert subagents for Claude Code. Five specialists that can analyze AND implement—architecture, security, code review, and more.
 
 [![License](https://img.shields.io/github/license/jarrodwatts/claude-delegator?v=2)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/jarrodwatts/claude-delegator?v=2)](https://github.com/jarrodwatts/claude-delegator/stargazers)
