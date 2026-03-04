@@ -141,9 +141,13 @@ If `/setup` doesn't work, register the MCP server(s) manually:
 
 ```bash
 # For Codex (GPT)
+# Idempotent: safe to rerun
+claude mcp remove codex >/dev/null 2>&1 || true
 claude mcp add --transport stdio --scope user codex -- codex -m gpt-5.3-codex mcp-server
 
 # For Gemini
+# Idempotent: safe to rerun
+claude mcp remove gemini >/dev/null 2>&1 || true
 claude mcp add --transport stdio --scope user gemini -- node ${CLAUDE_PLUGIN_ROOT}/server/gemini/index.js
 ```
 
@@ -151,6 +155,7 @@ Verify with:
 
 ```bash
 claude mcp list
+printf '{"jsonrpc":"2.0","id":"health","method":"initialize","params":{}}\n' | node ${CLAUDE_PLUGIN_ROOT}/server/gemini/index.js
 ```
 
 ### Customizing Expert Prompts
@@ -172,7 +177,9 @@ You need at least one of the following providers configured:
 - **Codex CLI** (for GPT): `npm install -g @openai/codex`
 - **Gemini CLI** (for Gemini): `npm install -g @google/gemini-cli`
 
-**Authentication**: Run `codex login` or `gemini login` after installation.
+**Authentication**:
+- Codex: run `codex login`
+- Gemini: run `gemini` once and complete the sign-in flow (or set `GOOGLE_API_KEY`)
 
 ---
 
@@ -190,7 +197,7 @@ You need at least one of the following providers configured:
 | Issue | Solution |
 |-------|----------|
 | MCP server not found | Restart Claude Code after setup |
-| Provider not authenticated | Run `codex login` or `gemini login` |
+| Provider not authenticated | Codex: run `codex login`. Gemini: run `gemini` once to complete sign-in (or set `GOOGLE_API_KEY`) |
 | Tool not appearing | Run `claude mcp list` and verify registration |
 | Expert not triggered | Try explicit: "Ask GPT to review..." or "Ask Gemini to review..." |
 

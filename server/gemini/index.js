@@ -9,7 +9,8 @@
 
 import { spawn, execSync } from "node:child_process";
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-2.5-flash";
+const VALID_SANDBOX_VALUES = new Set(["read-only", "workspace-write"]);
 
 // --- MCP Protocol Helpers ---
 
@@ -27,6 +28,18 @@ function sendError(id, code, message) {
     id,
     error: { code, message }
   }) + "\n");
+}
+
+function isObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasRequestId(request) {
+  return isObject(request) && Object.prototype.hasOwnProperty.call(request, "id");
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 // --- Gemini CLI Wrapper ---
@@ -80,7 +93,8 @@ async function runGemini(args, cwd) {
 // --- Request Handlers ---
 
 const handlers = {
-  "initialize": (id) => {
+  "initialize": (id, _params, shouldRespond) => {
+    if (!shouldRespond) return;
     sendResponse(id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: {} },
@@ -88,7 +102,8 @@ const handlers = {
     });
   },
 
-  "tools/list": (id) => {
+  "tools/list": (id, _params, shouldRespond) => {
+    if (!shouldRespond) return;
     sendResponse(id, {
       tools: [
         {
@@ -112,49 +127,103 @@ const handlers = {
           inputSchema: {
             type: "object",
             properties: {
-              threadId: { type: "string", description: "Session ID", default: "latest" },
+              threadId: { type: "string", description: "Session ID returned by a previous gemini call" },
               prompt: { type: "string", description: "Follow-up prompt" },
               sandbox: { type: "string", enum: ["read-only", "workspace-write"], default: "read-only" },
               cwd: { type: "string" }
             },
-            required: ["prompt"]
+            required: ["threadId", "prompt"]
           }
         }
       ]
     });
   },
 
-  "tools/call": async (id, params) => {
+  "tools/call": async (id, params, shouldRespond) => {
+    if (!isObject(params)) {
+      if (shouldRespond) sendError(id, -32602, "Invalid params: expected an object");
+      return;
+    }
+
     const { name, arguments: args } = params;
+    if (!isNonEmptyString(name)) {
+      if (shouldRespond) sendError(id, -32602, "Invalid params: 'name' must be a non-empty string");
+      return;
+    }
+    if (!isObject(args)) {
+      if (shouldRespond) sendError(id, -32602, "Invalid params: 'arguments' must be an object");
+      return;
+    }
+    if (args.sandbox !== undefined && !VALID_SANDBOX_VALUES.has(args.sandbox)) {
+      if (shouldRespond) sendError(id, -32602, "Invalid params: 'sandbox' must be 'read-only' or 'workspace-write'");
+      return;
+    }
+    if (args.cwd !== undefined && !isNonEmptyString(args.cwd)) {
+      if (shouldRespond) sendError(id, -32602, "Invalid params: 'cwd' must be a non-empty string when provided");
+      return;
+    }
+
     try {
       const geminiArgs = [];
       if (name === "gemini") {
+        if (args.model !== undefined && !isNonEmptyString(args.model)) {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'model' must be a non-empty string when provided");
+          return;
+        }
+        if (!isNonEmptyString(args.prompt)) {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'prompt' is required");
+          return;
+        }
+        if (args["developer-instructions"] !== undefined && typeof args["developer-instructions"] !== "string") {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'developer-instructions' must be a string when provided");
+          return;
+        }
+
         geminiArgs.push("-m", args.model || DEFAULT_MODEL);
         if (args.sandbox === "workspace-write") geminiArgs.push("-s");
         let prompt = args.prompt;
         if (args["developer-instructions"]) prompt = `${args["developer-instructions"]}\n\n${prompt}`;
         geminiArgs.push("-p", prompt);
       } else if (name === "gemini-reply") {
-        geminiArgs.push("--resume", args.threadId || "latest");
+        if (!isNonEmptyString(args.threadId)) {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'threadId' is required for gemini-reply");
+          return;
+        }
+        const threadId = args.threadId.trim();
+        if (threadId === "latest") {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'threadId' must be an explicit session id, not 'latest'");
+          return;
+        }
+        if (!isNonEmptyString(args.prompt)) {
+          if (shouldRespond) sendError(id, -32602, "Invalid params: 'prompt' is required");
+          return;
+        }
+
+        geminiArgs.push("--resume", threadId);
         if (args.sandbox === "workspace-write") geminiArgs.push("-s");
         geminiArgs.push("-p", args.prompt);
       } else {
-        return sendError(id, -32601, `Tool not found: ${name}`);
+        if (shouldRespond) sendError(id, -32601, `Tool not found: ${name}`);
+        return;
       }
 
       const { response, threadId } = await runGemini(geminiArgs, args.cwd);
       
       // Return metadata (threadId) at the top level for orchestration rules,
       // and standard content array for the UI.
-      sendResponse(id, {
-        content: [{ type: "text", text: response }],
-        threadId: threadId 
-      });
+      if (shouldRespond) {
+        sendResponse(id, {
+          content: [{ type: "text", text: response }],
+          threadId: threadId 
+        });
+      }
     } catch (e) {
-      sendResponse(id, {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
-        isError: true
-      });
+      if (shouldRespond) {
+        sendResponse(id, {
+          content: [{ type: "text", text: `Error: ${e.message}` }],
+          isError: true
+        });
+      }
     }
   },
 
@@ -171,16 +240,31 @@ process.stdin.on("data", async (chunk) => {
 
   for (const line of lines) {
     if (!line.trim()) continue;
+
+    let request;
     try {
-      const request = JSON.parse(line);
-      const handler = handlers[request.method];
-      if (handler) {
-        await handler(request.id, request.params);
-      } else if (request.id) {
-        sendError(request.id, -32601, `Method not found: ${request.method}`);
-      }
+      request = JSON.parse(line);
     } catch (e) {
       // Ignore parse errors from noise
+      continue;
+    }
+
+    const shouldRespond = hasRequestId(request);
+    if (!isObject(request) || typeof request.method !== "string") {
+      if (shouldRespond) sendError(request.id, -32600, "Invalid Request");
+      continue;
+    }
+
+    const handler = handlers[request.method];
+    if (!handler) {
+      if (shouldRespond) sendError(request.id, -32601, `Method not found: ${request.method}`);
+      continue;
+    }
+
+    try {
+      await handler(request.id, request.params, shouldRespond);
+    } catch (e) {
+      if (shouldRespond) sendError(request.id, -32603, `Internal error: ${e.message}`);
     }
   }
 });

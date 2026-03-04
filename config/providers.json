@@ -20,7 +20,7 @@
       "description": "Google Gemini models via Gemini CLI - specialized expert subagents",
       "cli": "gemini",
       "install": "npm install -g @google/gemini-cli",
-      "auth": "gemini login",
+      "auth": "run gemini once (or set GOOGLE_API_KEY)",
       "mcp": {
         "type": "stdio",
         "command": "node",
