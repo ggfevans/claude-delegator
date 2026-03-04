@@ -266,12 +266,12 @@ Fix the issue — ensure validation runs after body parser.`
 
 ## Codex Configuration Defaults
 
-Set global defaults in `~/.codex/config.toml` so you don't need to pass `sandbox` and `approval-policy` on every call:
+Set global defaults in `~/.codex/config.toml` so you don't need to pass `sandbox_mode` and `approval_policy` on every call:
 
 ```toml
 # ~/.codex/config.toml
-sandbox = "workspace-write"
-ask_for_approval = "on-failure"
+sandbox_mode = "workspace-write"
+approval_policy = "on-failure"
 ```
 
 Per-call parameters override these defaults. For example, pass `sandbox: "read-only"` to override the global default for advisory-only tasks.

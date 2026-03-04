@@ -125,8 +125,8 @@ Claude automatically selects the mode based on your request.
 Set global defaults in `~/.codex/config.toml` instead of passing parameters on every call:
 
 ```toml
-sandbox = "workspace-write"
-ask_for_approval = "on-failure"
+sandbox_mode = "workspace-write"
+approval_policy = "on-failure"
 ```
 
 Per-call parameters override these defaults. See [Codex CLI docs](https://github.com/openai/codex) for all config options.
